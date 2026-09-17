@@ -37,9 +37,36 @@ export interface BubbleCandidate {
   type: string;
 }
 
+export interface RetrievedBubble {
+  id: string;
+  label: string;
+  type: string;
+  description: string | null;
+  similarity: number;
+}
+
+export interface RetrievedRelationship {
+  sourceLabel: string;
+  targetLabel: string;
+  relationshipType: string;
+}
+
 export interface AIProvider {
   extractBubblesFromThought(
     rawText: string,
     existingBubbles: BubbleCandidate[],
   ): Promise<ExtractionResult>;
+
+  answerQuestion(
+    question: string,
+    context: {
+      bubbles: RetrievedBubble[];
+      relationships: RetrievedRelationship[];
+    },
+  ): Promise<string>;
+}
+
+export interface EmbeddingProvider {
+  embedText(text: string, inputType: "query" | "document"): Promise<number[]>;
+  embedTexts(texts: string[], inputType: "query" | "document"): Promise<number[][]>;
 }

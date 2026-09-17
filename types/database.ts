@@ -183,7 +183,18 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      match_bubbles: {
+        Args: { query_embedding: number[]; match_count?: number };
+        Returns: {
+          id: string;
+          label: string;
+          type: string;
+          description: string | null;
+          similarity: number;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

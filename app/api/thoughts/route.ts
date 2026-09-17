@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { extractBubblesFromThought } from "@/lib/ai";
+import { embedTexts, extractBubblesFromThought } from "@/lib/ai";
 import { getBubblesForCurrentUser, insertBubble } from "@/lib/db/bubbles";
 import { insertRelationship } from "@/lib/db/relationships";
 import { insertThought, updateThoughtStatus } from "@/lib/db/thoughts";
@@ -36,8 +36,17 @@ export async function POST(request: Request) {
 
     const extraction = await extractBubblesFromThought(parsed.data.text, candidates);
 
+    const entitiesToCreate = extraction.entities.filter(
+      (e) => !(e.action === "reuse" && e.existingBubbleId && knownIds.has(e.existingBubbleId)),
+    );
+    const embeddings = await embedTexts(
+      entitiesToCreate.map((e) => (e.description ? `${e.label}: ${e.description}` : e.label)),
+      "document",
+    );
+
     const tempIdToBubbleId = new Map<string, string>();
     let newBubbleCount = 0;
+    let createIndex = 0;
 
     for (const entity of extraction.entities) {
       if (
@@ -55,7 +64,9 @@ export async function POST(request: Request) {
         type: entity.type,
         description: entity.description,
         source_thought_id: thought.id,
+        embedding: embeddings[createIndex],
       });
+      createIndex += 1;
       tempIdToBubbleId.set(entity.tempId, bubble.id);
       newBubbleCount += 1;
     }

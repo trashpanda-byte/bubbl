@@ -1,5 +1,4 @@
-import { BubbleGraph } from "@/components/bubbles/bubble-graph";
-import { ThoughtCapture } from "@/components/bubbles/thought-capture";
+import { UniverseView } from "@/components/bubbles/universe-view";
 import {
   getBubblesForCurrentUser,
   getRelationshipsForCurrentUser,
@@ -12,9 +11,8 @@ export default async function UniversePage() {
   ]);
 
   return (
-    <div className="relative h-[calc(100vh-65px)]">
-      <ThoughtCapture />
-      <BubbleGraph bubbles={bubbles} relationships={relationships} />
+    <div className="h-[calc(100vh-65px)]">
+      <UniverseView bubbles={bubbles} relationships={relationships} />
     </div>
   );
 }

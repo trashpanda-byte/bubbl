@@ -9,6 +9,27 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 });
 
+const TYPE_COLORS = [
+  "#f59e0b",
+  "#3b82f6",
+  "#10b981",
+  "#ec4899",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ef4444",
+  "#84cc16",
+];
+const DIMMED_COLOR = "rgba(140, 140, 140, 0.2)";
+
+function colorForType(type: string): string {
+  let hash = 0;
+  for (let i = 0; i < type.length; i++) {
+    hash = (hash << 5) - hash + type.charCodeAt(i);
+    hash |= 0;
+  }
+  return TYPE_COLORS[Math.abs(hash) % TYPE_COLORS.length];
+}
+
 interface GraphNode {
   id: string;
   name: string;
@@ -25,9 +46,11 @@ interface GraphLink {
 export function BubbleGraph({
   bubbles,
   relationships,
+  highlightedIds,
 }: {
   bubbles: Bubble[];
   relationships: Relationship[];
+  highlightedIds?: string[] | null;
 }) {
   const [selected, setSelected] = useState<GraphNode | null>(null);
 
@@ -52,6 +75,11 @@ export function BubbleGraph({
     [bubbles, relationships],
   );
 
+  const highlightSet = useMemo(
+    () => (highlightedIds ? new Set(highlightedIds) : null),
+    [highlightedIds],
+  );
+
   if (bubbles.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -72,7 +100,21 @@ export function BubbleGraph({
         graphData={graphData}
         nodeId="id"
         nodeLabel="name"
-        nodeAutoColorBy="type"
+        nodeColor={(node) => {
+          const n = node as unknown as GraphNode;
+          const base = colorForType(n.type);
+          if (!highlightSet) return base;
+          return highlightSet.has(n.id) ? base : DIMMED_COLOR;
+        }}
+        linkColor={(link) => {
+          if (!highlightSet) return "rgba(255,255,255,0.2)";
+          const l = link as unknown as { source: string | GraphNode; target: string | GraphNode };
+          const sourceId = typeof l.source === "string" ? l.source : l.source.id;
+          const targetId = typeof l.target === "string" ? l.target : l.target.id;
+          return highlightSet.has(sourceId) && highlightSet.has(targetId)
+            ? "rgba(255,255,255,0.4)"
+            : "rgba(140,140,140,0.08)";
+        }}
         linkLabel={(link) => (link as unknown as GraphLink).relationship_type}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}

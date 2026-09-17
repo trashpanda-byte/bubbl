@@ -6,6 +6,8 @@ import {
   type AIProvider,
   type BubbleCandidate,
   type ExtractionResult,
+  type RetrievedBubble,
+  type RetrievedRelationship,
 } from "./types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -103,6 +105,24 @@ function formatCandidates(existingBubbles: BubbleCandidate[]): string {
     .join("\n");
 }
 
+const ASSISTANT_SYSTEM_PROMPT = `You are Bubbl.ai's assistant. Answer the user's question using ONLY the bubbles and relationships provided below, which were retrieved from their personal knowledge graph because they're relevant to the question. Do not use outside knowledge about the user.
+
+If the provided bubbles don't contain enough information to answer, say so plainly rather than guessing. Be concise and conversational. Refer to bubbles by their label. Respond in plain text only — no markdown formatting (no **, #, or bullet dashes), since the answer is shown as-is in a plain chat bubble.`;
+
+function formatBubblesForAnswer(bubbles: RetrievedBubble[]): string {
+  if (bubbles.length === 0) return "(none found)";
+  return bubbles
+    .map((b) => `- [${b.type}] ${b.label}${b.description ? `: ${b.description}` : ""}`)
+    .join("\n");
+}
+
+function formatRelationshipsForAnswer(relationships: RetrievedRelationship[]): string {
+  if (relationships.length === 0) return "(none found)";
+  return relationships
+    .map((r) => `- ${r.sourceLabel} —${r.relationshipType}→ ${r.targetLabel}`)
+    .join("\n");
+}
+
 export const anthropicProvider: AIProvider = {
   async extractBubblesFromThought(rawText, existingBubbles) {
     const message = await client.messages.create({
@@ -126,5 +146,22 @@ export const anthropicProvider: AIProvider = {
 
     const result: ExtractionResult = ExtractionResultSchema.parse(toolUse.input);
     return result;
+  },
+
+  async answerQuestion(question, context) {
+    const message = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      system: ASSISTANT_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Relevant bubbles:\n${formatBubblesForAnswer(context.bubbles)}\n\nRelevant relationships:\n${formatRelationshipsForAnswer(context.relationships)}\n\nQuestion: ${question}`,
+        },
+      ],
+    });
+
+    const textBlock = message.content.find((block) => block.type === "text");
+    return textBlock?.text ?? "";
   },
 };
