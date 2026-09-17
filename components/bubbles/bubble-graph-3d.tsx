@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import SpriteText from "three-spritetext";
 
@@ -11,6 +11,7 @@ import type { Bubble, Relationship } from "@/types/database";
 import { BubbleDetailPanel } from "./bubble-detail-panel";
 import type { GraphLink, GraphNode } from "./graph-types";
 import { createStarfield } from "./starfield";
+import { WebcamGestures, type CameraDelta } from "./webcam-gestures";
 
 import type { ForceGraphMethods } from "react-force-graph-3d";
 
@@ -71,6 +72,31 @@ export function BubbleGraph3D({
   const fgRef = useRef<ForceGraph3DRef>(undefined);
   const starsAdded = useRef(false);
   const forcesConfigured = useRef(false);
+  const sphericalRef = useRef<{ radius: number; theta: number; phi: number } | null>(null);
+
+  const handleCameraDelta = useCallback((delta: CameraDelta) => {
+    const fg = fgRef.current;
+    if (!fg) return;
+
+    if (!sphericalRef.current) {
+      const pos = fg.camera().position;
+      const radius = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2) || 400;
+      const phi = Math.acos(THREE.MathUtils.clamp(pos.y / radius, -1, 1));
+      const theta = Math.atan2(pos.z, pos.x);
+      sphericalRef.current = { radius, theta, phi };
+    }
+
+    const s = sphericalRef.current;
+    s.radius = THREE.MathUtils.clamp(s.radius + delta.deltaRadius, 80, 2200);
+    s.theta += delta.deltaTheta;
+    s.phi = THREE.MathUtils.clamp(s.phi + delta.deltaPhi, 0.15, Math.PI - 0.15);
+
+    const x = s.radius * Math.sin(s.phi) * Math.cos(s.theta);
+    const y = s.radius * Math.cos(s.phi);
+    const z = s.radius * Math.sin(s.phi) * Math.sin(s.theta);
+
+    fg.cameraPosition({ x, y, z }, { x: 0, y: 0, z: 0 }, 0);
+  }, []);
 
   const graphData = useMemo(() => {
     const nodes: Graph3DNode[] = [
@@ -168,6 +194,8 @@ export function BubbleGraph3D({
         }}
         onEngineStop={() => fgRef.current?.zoomToFit(600, 80)}
       />
+
+      <WebcamGestures onCameraDelta={handleCameraDelta} />
 
       {selected && (
         <BubbleDetailPanel
