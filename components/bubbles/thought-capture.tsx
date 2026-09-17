@@ -39,25 +39,23 @@ export function ThoughtCapture() {
       onSubmit={handleSubmit}
       className="absolute left-1/2 top-6 z-10 w-full max-w-xl -translate-x-1/2 px-4"
     >
-      <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 shadow-lg shadow-black/40 backdrop-blur">
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="What's on your mind?"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+          className="flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500"
         />
         <button
           type="submit"
           disabled={loading || !text.trim()}
-          className="shrink-0 rounded-full bg-neutral-950 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:opacity-50 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+          className="shrink-0 rounded-full bg-white px-4 py-1.5 text-sm font-medium text-neutral-950 transition hover:bg-neutral-200 disabled:opacity-50"
         >
           {loading ? "Thinking…" : "Add"}
         </button>
       </div>
-      {error && (
-        <p className="mt-2 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
+      {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
     </form>
   );
 }

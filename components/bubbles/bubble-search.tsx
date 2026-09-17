@@ -37,19 +37,19 @@ export function BubbleSearch({
       onSubmit={handleSubmit}
       className="absolute right-4 top-6 z-10 w-full max-w-xs px-4 sm:px-0"
     >
-      <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 shadow-lg shadow-black/40 backdrop-blur">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search your universe…"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+          className="flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500"
         />
         {active ? (
           <button
             type="button"
             onClick={handleClear}
-            className="shrink-0 text-xs font-medium text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
+            className="shrink-0 text-xs font-medium text-neutral-400 transition hover:text-neutral-200"
           >
             Clear
           </button>
@@ -57,7 +57,7 @@ export function BubbleSearch({
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="shrink-0 text-xs font-medium text-neutral-500 transition hover:text-neutral-950 disabled:opacity-50 dark:hover:text-white"
+            className="shrink-0 text-xs font-medium text-neutral-400 transition hover:text-white disabled:opacity-50"
           >
             {loading ? "…" : "Search"}
           </button>

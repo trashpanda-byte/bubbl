@@ -3,47 +3,15 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
+import { colorForType, DIMMED_COLOR } from "@/lib/bubble-colors";
 import type { Bubble, Relationship } from "@/types/database";
 
 import { BubbleDetailPanel } from "./bubble-detail-panel";
+import type { GraphLink, GraphNode } from "./graph-types";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 });
-
-const TYPE_COLORS = [
-  "#f59e0b",
-  "#3b82f6",
-  "#10b981",
-  "#ec4899",
-  "#8b5cf6",
-  "#06b6d4",
-  "#ef4444",
-  "#84cc16",
-];
-const DIMMED_COLOR = "rgba(140, 140, 140, 0.2)";
-
-function colorForType(type: string): string {
-  let hash = 0;
-  for (let i = 0; i < type.length; i++) {
-    hash = (hash << 5) - hash + type.charCodeAt(i);
-    hash |= 0;
-  }
-  return TYPE_COLORS[Math.abs(hash) % TYPE_COLORS.length];
-}
-
-interface GraphNode {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-}
-
-interface GraphLink {
-  source: string;
-  target: string;
-  relationship_type: string;
-}
 
 export function BubbleGraph({
   bubbles,
