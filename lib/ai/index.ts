@@ -1,5 +1,6 @@
 import { anthropicProvider } from "./anthropic";
 import type {
+  AnswerResult,
   BubbleCandidate,
   ExtractionResult,
   RetrievedBubble,
@@ -8,7 +9,9 @@ import type {
 import { voyageProvider } from "./voyage";
 
 export type {
+  AnswerResult,
   BubbleCandidate,
+  BubbleEdit,
   ExtractionResult,
   ExtractedEntity,
   ExtractedRelationship,
@@ -30,7 +33,7 @@ export function extractBubblesFromThought(
 export function answerQuestion(
   question: string,
   context: { bubbles: RetrievedBubble[]; relationships: RetrievedRelationship[] },
-): Promise<string> {
+): Promise<AnswerResult> {
   return anthropicProvider.answerQuestion(question, context);
 }
 

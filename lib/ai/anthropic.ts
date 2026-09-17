@@ -1,10 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
 
 import {
+  BubbleEditSchema,
   ExtractionResultSchema,
   type AIProvider,
   type BubbleCandidate,
+  type BubbleEdit,
   type ExtractionResult,
   type RetrievedBubble,
   type RetrievedRelationship,
@@ -105,14 +107,38 @@ function formatCandidates(existingBubbles: BubbleCandidate[]): string {
     .join("\n");
 }
 
+const UPDATE_BUBBLE_TOOL: Tool = {
+  name: "update_bubble",
+  description:
+    "Update a bubble's stored notes/description — to summarize, add detail the user just mentioned, or tidy up wording. Only call this for bubbles listed below, using their exact id. This replaces the bubble's entire description, so include everything worth keeping, not just the new part.",
+  input_schema: {
+    type: "object",
+    properties: {
+      bubbleId: {
+        type: "string",
+        description: "The id of the bubble to update, exactly as given in the bubble list.",
+      },
+      description: {
+        type: "string",
+        description: "The full new description/notes for the bubble.",
+      },
+    },
+    required: ["bubbleId", "description"],
+  },
+};
+
 const ASSISTANT_SYSTEM_PROMPT = `You are Bubbl.ai's assistant. Answer the user's question using ONLY the bubbles and relationships provided below, which were retrieved from their personal knowledge graph because they're relevant to the question. Do not use outside knowledge about the user.
 
-If the provided bubbles don't contain enough information to answer, say so plainly rather than guessing. Be concise and conversational. Refer to bubbles by their label. Respond in plain text only — no markdown formatting (no **, #, or bullet dashes), since the answer is shown as-is in a plain chat bubble.`;
+If the provided bubbles don't contain enough information to answer, say so plainly rather than guessing. Be concise and conversational. Refer to bubbles by their label.
+
+If the user asks you to summarize, add detail to, organize, or clean up a bubble's notes — or if answering naturally surfaces a worthwhile update (e.g. they just gave new detail about something already tracked) — use the update_bubble tool to actually save that change, then mention in your reply what you updated. Don't update a bubble just because it was relevant context; only update when there's a genuine improvement to save.
+
+Respond in plain text only — no markdown formatting (no **, #, or bullet dashes), since the answer is shown as-is in a plain chat bubble.`;
 
 function formatBubblesForAnswer(bubbles: RetrievedBubble[]): string {
   if (bubbles.length === 0) return "(none found)";
   return bubbles
-    .map((b) => `- [${b.type}] ${b.label}${b.description ? `: ${b.description}` : ""}`)
+    .map((b) => `- id: ${b.id} | [${b.type}] ${b.label}${b.description ? `: ${b.description}` : ""}`)
     .join("\n");
 }
 
@@ -149,19 +175,61 @@ export const anthropicProvider: AIProvider = {
   },
 
   async answerQuestion(question, context) {
-    const message = await client.messages.create({
+    const messages: MessageParam[] = [
+      {
+        role: "user",
+        content: `Relevant bubbles:\n${formatBubblesForAnswer(context.bubbles)}\n\nRelevant relationships:\n${formatRelationshipsForAnswer(context.relationships)}\n\nQuestion: ${question}`,
+      },
+    ];
+
+    const first = await client.messages.create({
       model: MODEL,
       max_tokens: 1024,
       system: ASSISTANT_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Relevant bubbles:\n${formatBubblesForAnswer(context.bubbles)}\n\nRelevant relationships:\n${formatRelationshipsForAnswer(context.relationships)}\n\nQuestion: ${question}`,
-        },
-      ],
+      messages,
+      tools: [UPDATE_BUBBLE_TOOL],
+      tool_choice: { type: "auto" },
     });
 
-    const textBlock = message.content.find((block) => block.type === "text");
-    return textBlock?.text ?? "";
+    const edits: BubbleEdit[] = [];
+    const toolUses = first.content.filter((block) => block.type === "tool_use");
+    for (const block of toolUses) {
+      if (block.name !== "update_bubble") continue;
+      const parsed = BubbleEditSchema.safeParse(block.input);
+      if (parsed.success) edits.push(parsed.data);
+    }
+
+    let finalMessage = first;
+
+    // If the model only emitted a tool call with no text, it's expecting a
+    // reply to that call before giving its natural-language answer — a bare
+    // tool call is not a usable answer on its own, so continue the turn.
+    if (toolUses.length > 0) {
+      messages.push({ role: "assistant", content: first.content });
+      messages.push({
+        role: "user",
+        content: toolUses.map((block) => ({
+          type: "tool_result" as const,
+          tool_use_id: block.id,
+          content: "Saved.",
+        })),
+      });
+
+      finalMessage = await client.messages.create({
+        model: MODEL,
+        max_tokens: 1024,
+        system: ASSISTANT_SYSTEM_PROMPT,
+        messages,
+        tools: [UPDATE_BUBBLE_TOOL],
+        tool_choice: { type: "auto" },
+      });
+    }
+
+    const answer = finalMessage.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("\n\n");
+
+    return { answer, edits };
   },
 };

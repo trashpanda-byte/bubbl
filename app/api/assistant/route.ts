@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { answerQuestion, embedText } from "@/lib/ai";
-import { getRelationshipsAmongBubbles, matchBubbles } from "@/lib/db/bubbles";
+import { getRelationshipsAmongBubbles, matchBubbles, updateBubble } from "@/lib/db/bubbles";
 import { getOrCreateConversation, insertMessage } from "@/lib/db/conversations";
 import { createClient } from "@/lib/supabase/server";
 
@@ -58,7 +58,27 @@ export async function POST(request: Request) {
         relationshipType: r.relationship_type,
       }));
 
-    const answer = await answerQuestion(parsed.data.message, { bubbles, relationships });
+    const { answer, edits } = await answerQuestion(parsed.data.message, {
+      bubbles,
+      relationships,
+    });
+
+    // Only apply edits to bubbles we actually retrieved for this user —
+    // never trust an id the model returns without checking it's real and
+    // in scope, even though the prompt told it to only use known ids.
+    const updatedBubbles: { id: string; label: string; description: string }[] = [];
+    for (const edit of edits) {
+      if (!bubbleIds.has(edit.bubbleId)) continue;
+      const embedding = await embedText(
+        `${labelById.get(edit.bubbleId)}: ${edit.description}`,
+        "document",
+      );
+      const updated = await updateBubble(supabase, edit.bubbleId, {
+        description: edit.description,
+        embedding,
+      });
+      updatedBubbles.push({ id: updated.id, label: updated.label, description: updated.description ?? "" });
+    }
 
     await insertMessage(supabase, {
       conversation_id: conversation.id,
@@ -72,6 +92,7 @@ export async function POST(request: Request) {
       conversationId: conversation.id,
       answer,
       retrievedBubbleIds: bubbles.map((b) => b.id),
+      updatedBubbles,
     });
   } catch (err) {
     console.error("Assistant failed:", err instanceof Error ? err.message : err);

@@ -51,6 +51,17 @@ export interface RetrievedRelationship {
   relationshipType: string;
 }
 
+export const BubbleEditSchema = z.object({
+  bubbleId: z.string().min(1),
+  description: z.string().min(1),
+});
+export type BubbleEdit = z.infer<typeof BubbleEditSchema>;
+
+export interface AnswerResult {
+  answer: string;
+  edits: BubbleEdit[];
+}
+
 export interface AIProvider {
   extractBubblesFromThought(
     rawText: string,
@@ -63,7 +74,7 @@ export interface AIProvider {
       bubbles: RetrievedBubble[];
       relationships: RetrievedRelationship[];
     },
-  ): Promise<string>;
+  ): Promise<AnswerResult>;
 }
 
 export interface EmbeddingProvider {

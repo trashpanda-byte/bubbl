@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { Bubble, Relationship } from "@/types/database";
@@ -15,6 +16,7 @@ export function UniverseView({
   bubbles: Bubble[];
   relationships: Relationship[];
 }) {
+  const router = useRouter();
   const [highlightedIds, setHighlightedIds] = useState<string[] | null>(null);
 
   return (
@@ -25,6 +27,7 @@ export function UniverseView({
         bubbles={bubbles}
         relationships={relationships}
         highlightedIds={highlightedIds}
+        onBubbleChanged={() => router.refresh()}
       />
     </div>
   );

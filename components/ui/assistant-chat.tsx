@@ -5,6 +5,7 @@ import { useState } from "react";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  updatedBubbles?: { id: string; label: string }[];
 }
 
 export function AssistantChat() {
@@ -38,9 +39,16 @@ export function AssistantChat() {
       return;
     }
 
-    const data: { conversationId: string; answer: string } = await res.json();
+    const data: {
+      conversationId: string;
+      answer: string;
+      updatedBubbles?: { id: string; label: string }[];
+    } = await res.json();
     setConversationId(data.conversationId);
-    setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: data.answer, updatedBubbles: data.updatedBubbles },
+    ]);
   }
 
   return (
@@ -65,6 +73,18 @@ export function AssistantChat() {
               }`}
             >
               {m.content}
+              {m.updatedBubbles && m.updatedBubbles.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5 border-t border-black/10 pt-2 dark:border-white/10">
+                  {m.updatedBubbles.map((b) => (
+                    <span
+                      key={b.id}
+                      className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                    >
+                      Updated: {b.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}

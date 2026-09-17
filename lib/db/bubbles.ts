@@ -42,6 +42,33 @@ export async function insertBubble(
   return data;
 }
 
+export async function updateBubble(
+  supabase: SupabaseServerClient,
+  id: string,
+  values: Partial<{
+    label: string;
+    type: string;
+    description: string | null;
+    embedding: number[] | null;
+  }>,
+): Promise<Bubble> {
+  const { data, error } = await supabase
+    .from("bubbles")
+    .update(values)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteBubble(supabase: SupabaseServerClient, id: string): Promise<void> {
+  // .select().single() forces an error when no row matched — either a bad id
+  // or one RLS silently excluded — instead of reporting a no-op as success.
+  const { error } = await supabase.from("bubbles").delete().eq("id", id).select().single();
+  if (error) throw error;
+}
+
 export interface BubbleMatch {
   id: string;
   label: string;

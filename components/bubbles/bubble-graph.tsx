@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 
 import type { Bubble, Relationship } from "@/types/database";
 
+import { BubbleDetailPanel } from "./bubble-detail-panel";
+
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 });
@@ -47,10 +49,12 @@ export function BubbleGraph({
   bubbles,
   relationships,
   highlightedIds,
+  onBubbleChanged,
 }: {
   bubbles: Bubble[];
   relationships: Relationship[];
   highlightedIds?: string[] | null;
+  onBubbleChanged: () => void;
 }) {
   const [selected, setSelected] = useState<GraphNode | null>(null);
 
@@ -123,19 +127,12 @@ export function BubbleGraph({
       />
 
       {selected && (
-        <div className="absolute bottom-6 left-6 max-w-xs rounded-xl border border-neutral-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-            {selected.type}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-neutral-950 dark:text-white">
-            {selected.name}
-          </p>
-          {selected.description && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              {selected.description}
-            </p>
-          )}
-        </div>
+        <BubbleDetailPanel
+          key={selected.id}
+          bubble={selected}
+          onClose={() => setSelected(null)}
+          onChanged={onBubbleChanged}
+        />
       )}
     </div>
   );
