@@ -18,11 +18,17 @@ export function BubbleGraph({
   relationships,
   highlightedIds,
   onBubbleChanged,
+  linkingFromId,
+  onStartLinking,
+  onLinkTargetSelected,
 }: {
   bubbles: Bubble[];
   relationships: Relationship[];
   highlightedIds?: string[] | null;
   onBubbleChanged: () => void;
+  linkingFromId: string | null;
+  onStartLinking: (bubbleId: string) => void;
+  onLinkTargetSelected: (bubbleId: string) => void;
 }) {
   const [selected, setSelected] = useState<GraphNode | null>(null);
 
@@ -90,7 +96,14 @@ export function BubbleGraph({
         linkLabel={(link) => (link as unknown as GraphLink).relationship_type}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
-        onNodeClick={(node) => setSelected(node as unknown as GraphNode)}
+        onNodeClick={(node) => {
+          const n = node as unknown as GraphNode;
+          if (linkingFromId && n.id !== linkingFromId) {
+            onLinkTargetSelected(n.id);
+          } else {
+            setSelected(n);
+          }
+        }}
         onBackgroundClick={() => setSelected(null)}
       />
 
@@ -100,6 +113,10 @@ export function BubbleGraph({
           bubble={selected}
           onClose={() => setSelected(null)}
           onChanged={onBubbleChanged}
+          onStartLinking={(id) => {
+            onStartLinking(id);
+            setSelected(null);
+          }}
         />
       )}
     </div>

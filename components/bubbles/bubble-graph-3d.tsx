@@ -20,12 +20,17 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
 });
 
 const HUB_ID = "__hub__";
+const TAP_HIT_RADIUS_PX = 40;
 
 interface Graph3DNode extends GraphNode {
   isHub?: boolean;
   fx?: number;
   fy?: number;
   fz?: number;
+  // Populated at runtime by the force simulation — not present up front.
+  x?: number;
+  y?: number;
+  z?: number;
 }
 
 type ForceGraph3DRef = ForceGraphMethods<Graph3DNode, GraphLink> | undefined;
@@ -62,17 +67,56 @@ export function BubbleGraph3D({
   relationships,
   highlightedIds,
   onBubbleChanged,
+  linkingFromId,
+  onStartLinking,
+  onLinkTargetSelected,
 }: {
   bubbles: Bubble[];
   relationships: Relationship[];
   highlightedIds?: string[] | null;
   onBubbleChanged: () => void;
+  linkingFromId: string | null;
+  onStartLinking: (bubbleId: string) => void;
+  onLinkTargetSelected: (bubbleId: string) => void;
 }) {
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const fgRef = useRef<ForceGraph3DRef>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
   const starsAdded = useRef(false);
   const forcesConfigured = useRef(false);
   const sphericalRef = useRef<{ radius: number; theta: number; phi: number } | null>(null);
+
+  const graphData = useMemo(() => {
+    const nodes: Graph3DNode[] = [
+      { id: HUB_ID, name: "My Life", type: "__hub__", description: null, isHub: true, fx: 0, fy: 0, fz: 0 },
+      ...bubbles.map(
+        (b): Graph3DNode => ({
+          id: b.id,
+          name: b.label,
+          type: b.type,
+          description: b.description,
+        }),
+      ),
+    ];
+    const links: GraphLink[] = relationships.map((r) => ({
+      source: r.source_bubble_id,
+      target: r.target_bubble_id,
+      relationship_type: r.relationship_type,
+    }));
+    return { nodes, links };
+  }, [bubbles, relationships]);
+
+  const selectNode = useCallback(
+    (node: Graph3DNode) => {
+      if (node.isHub) return;
+      if (linkingFromId && node.id !== linkingFromId) {
+        onLinkTargetSelected(node.id);
+      } else {
+        setSelected(node);
+      }
+    },
+    [linkingFromId, onLinkTargetSelected],
+  );
 
   const handleCameraDelta = useCallback((delta: CameraDelta) => {
     const fg = fgRef.current;
@@ -98,25 +142,43 @@ export function BubbleGraph3D({
     fg.cameraPosition({ x, y, z }, { x: 0, y: 0, z: 0 }, 0);
   }, []);
 
-  const graphData = useMemo(() => {
-    const nodes: Graph3DNode[] = [
-      { id: HUB_ID, name: "My Life", type: "__hub__", description: null, isHub: true, fx: 0, fy: 0, fz: 0 },
-      ...bubbles.map(
-        (b): Graph3DNode => ({
-          id: b.id,
-          name: b.label,
-          type: b.type,
-          description: b.description,
-        }),
-      ),
-    ];
-    const links: GraphLink[] = relationships.map((r) => ({
-      source: r.source_bubble_id,
-      target: r.target_bubble_id,
-      relationship_type: r.relationship_type,
-    }));
-    return { nodes, links };
-  }, [bubbles, relationships]);
+  // Gesture "tap" hit-testing: react-force-graph-3d's own click detection
+  // is wired to real DOM pointer events, so instead of faking those, this
+  // projects each node's current simulated (x,y,z) — mutated in place by
+  // the force engine on the same graphData.nodes array we pass as
+  // graphData — into screen space and picks whichever lands nearest the
+  // gesture's tap position.
+  const handleTap = useCallback(
+    (screenX: number, screenY: number) => {
+      const fg = fgRef.current;
+      const container = containerRef.current;
+      if (!fg || !container) return;
+
+      const rect = container.getBoundingClientRect();
+      const camera = fg.camera();
+      const projected = new THREE.Vector3();
+
+      let closest: Graph3DNode | null = null;
+      let closestDist = TAP_HIT_RADIUS_PX;
+
+      for (const node of graphData.nodes) {
+        if (node.isHub || node.x === undefined || node.y === undefined || node.z === undefined) {
+          continue;
+        }
+        projected.set(node.x, node.y, node.z).project(camera);
+        const px = rect.left + ((projected.x + 1) / 2) * rect.width;
+        const py = rect.top + ((1 - projected.y) / 2) * rect.height;
+        const dist = Math.hypot(px - screenX, py - screenY);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = node;
+        }
+      }
+
+      if (closest) selectNode(closest);
+    },
+    [graphData, selectNode],
+  );
 
   const highlightSet = useMemo(
     () => (highlightedIds ? new Set(highlightedIds) : null),
@@ -140,7 +202,7 @@ export function BubbleGraph3D({
   }
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={containerRef} className="relative h-full w-full">
       <ForceGraph3D
         // next/dynamic erases the generic type params of forwardRef
         // components, so the dynamically-imported element's inferred ref
@@ -169,11 +231,7 @@ export function BubbleGraph3D({
         linkLabel={(link) => (link as unknown as GraphLink).relationship_type}
         linkOpacity={0.5}
         linkWidth={0.6}
-        onNodeClick={(node) => {
-          const n = node as unknown as Graph3DNode;
-          if (n.isHub) return;
-          setSelected(n);
-        }}
+        onNodeClick={(node) => selectNode(node as unknown as Graph3DNode)}
         onBackgroundClick={() => setSelected(null)}
         onEngineTick={() => {
           if (!forcesConfigured.current && fgRef.current) {
@@ -195,7 +253,7 @@ export function BubbleGraph3D({
         onEngineStop={() => fgRef.current?.zoomToFit(600, 80)}
       />
 
-      <WebcamGestures onCameraDelta={handleCameraDelta} />
+      <WebcamGestures onCameraDelta={handleCameraDelta} onTap={handleTap} />
 
       {selected && (
         <BubbleDetailPanel
@@ -203,6 +261,10 @@ export function BubbleGraph3D({
           bubble={selected}
           onClose={() => setSelected(null)}
           onChanged={onBubbleChanged}
+          onStartLinking={(id) => {
+            onStartLinking(id);
+            setSelected(null);
+          }}
         />
       )}
     </div>

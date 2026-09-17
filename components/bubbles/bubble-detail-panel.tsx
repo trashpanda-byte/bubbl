@@ -13,10 +13,12 @@ export function BubbleDetailPanel({
   bubble,
   onClose,
   onChanged,
+  onStartLinking,
 }: {
   bubble: DetailBubble;
   onClose: () => void;
   onChanged: () => void;
+  onStartLinking: (bubbleId: string) => void;
 }) {
   const [label, setLabel] = useState(bubble.name);
   const [type, setType] = useState(bubble.type);
@@ -109,7 +111,15 @@ export function BubbleDetailPanel({
 
       {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
 
-      <div className="mt-3 flex items-center justify-between">
+      <button
+        type="button"
+        onClick={() => onStartLinking(bubble.id)}
+        className="mt-3 text-xs font-medium text-sky-400 transition hover:text-sky-300"
+      >
+        Link to another bubble…
+      </button>
+
+      <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
         <button
           type="button"
           onClick={handleDelete}
