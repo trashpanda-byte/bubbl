@@ -1,6 +1,11 @@
 // Hand-written to match supabase/migrations/20260917000000_initial_schema.sql.
 // If the schema drifts from this file, regenerate with the Supabase CLI:
 // `supabase gen types typescript --project-id jjetjxrvlqwrteellghx`
+//
+// Every table includes an empty `Relationships: []`, and the schema includes
+// empty `Views`/`Functions`, purely because @supabase/postgrest-js's generic
+// types require those shapes to be present to infer Row/Insert/Update
+// correctly — this is what `supabase gen types` itself always outputs.
 
 export type ThoughtStatus = "pending" | "processed" | "failed";
 export type MessageRole = "user" | "assistant";
@@ -27,6 +32,7 @@ export interface Database {
           display_name?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       thoughts: {
         Row: {
@@ -50,6 +56,7 @@ export interface Database {
           status?: ThoughtStatus;
           created_at?: string;
         };
+        Relationships: [];
       };
       bubbles: {
         Row: {
@@ -88,6 +95,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       relationships: {
         Row: {
@@ -120,6 +128,7 @@ export interface Database {
           source_thought_id?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       conversations: {
         Row: {
@@ -140,6 +149,7 @@ export interface Database {
           title?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       messages: {
         Row: {
@@ -169,8 +179,13 @@ export interface Database {
           retrieved_bubble_ids?: string[];
           created_at?: string;
         };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 
